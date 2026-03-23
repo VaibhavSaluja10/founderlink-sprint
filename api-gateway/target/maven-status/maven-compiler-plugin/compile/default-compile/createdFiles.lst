@@ -1,0 +1,4 @@
+com\founderlink\gateway\config\RouteValidator.class
+com\founderlink\gateway\ApiGatewayApplication.class
+com\founderlink\gateway\filter\AuthenticationFilter.class
+com\founderlink\gateway\filter\AuthenticationFilter$Config.class
