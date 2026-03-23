@@ -1,0 +1,5 @@
+com\founderlink\user\UserApplication.class
+com\founderlink\user\controller\UserProfileController.class
+com\founderlink\user\repository\UserProfileRepository.class
+com\founderlink\user\entity\UserProfile.class
+com\founderlink\user\service\UserProfileService.class
