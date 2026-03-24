@@ -66,5 +66,3 @@ FounderLink is a platform designed to connect startup founders with investors an
 - `POST /messages` - {senderId, receiverId, content}
 - `GET /messages/conversation?user1=1&user2=2` - Chat history
 
-## 💡 Note for Presentation
-The code is written at a beginner level to make it easy to explain. Each service has its own database and communicates asynchronously using RabbitMQ for notifications, demonstrating a true microservices pattern while keeping the logic simple.
