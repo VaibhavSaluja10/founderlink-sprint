@@ -1,5 +1,0 @@
-com\founderlink\gateway\filter\AuthenticationFilterGatewayFilterFactory.class
-com\founderlink\gateway\util\JwtUtil.class
-com\founderlink\gateway\config\RouteValidator.class
-com\founderlink\gateway\filter\AuthenticationFilterGatewayFilterFactory$Config.class
-com\founderlink\gateway\ApiGatewayApplication.class
