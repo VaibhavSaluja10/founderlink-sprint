@@ -84,4 +84,4 @@ You can view the full API documentation (Swagger) by visiting any service port a
 ---
 
 ## 📄 License
-This project was developed as part of the Capgemini Sprint project.
+This project was developed as part of the Sprint project.
