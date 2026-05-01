@@ -78,6 +78,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+    environment:
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
@@ -100,6 +102,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=native
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
@@ -117,6 +120,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
@@ -136,6 +140,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
@@ -152,6 +157,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
@@ -175,6 +181,7 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_FROM=${MAIL_FROM}
       - INVESTOR_ALERT_EMAILS=${INVESTOR_ALERT_EMAILS}
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
@@ -191,6 +198,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
@@ -210,6 +218,7 @@ services:
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
@@ -233,6 +242,7 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_FROM=${MAIL_FROM}
       - INVESTOR_ALERT_EMAILS=${INVESTOR_ALERT_EMAILS}
+      - JAVA_OPTS=-Xmx256m -Xms256m
     networks:
       - founderlink-network
 
