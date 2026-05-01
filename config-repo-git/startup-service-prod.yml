@@ -1,0 +1,19 @@
+# Startup Service - Production Profile
+spring:
+  datasource:
+    url: jdbc:mysql://prod-db-server:3306/founderlink_startup?createDatabaseIfNotExist=false
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: 5672
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+
+logging:
+  level:
+    org.capgemini: WARN
+    org.springframework.amqp: WARN

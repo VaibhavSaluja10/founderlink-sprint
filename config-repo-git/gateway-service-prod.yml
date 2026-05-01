@@ -1,0 +1,19 @@
+# Gateway Service - Production Profile
+logging:
+  level:
+    org.springframework.cloud.gateway: WARN
+    org.springframework.web: WARN
+
+spring:
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "https://founderlink.com"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+            allowedHeaders: "*"

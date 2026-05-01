@@ -1,0 +1,13 @@
+# Messaging Service - Production Profile
+spring:
+  datasource:
+    url: jdbc:mysql://prod-db-server:3306/founderlink_messaging?createDatabaseIfNotExist=false
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+logging:
+  level:
+    org.capgemini: WARN

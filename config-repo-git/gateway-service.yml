@@ -1,0 +1,118 @@
+server:
+  port: 8060
+
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+      routes:
+        - id: notification-service
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/notifications/**
+
+        - id: team-service
+          uri: lb://TEAM-SERVICE
+          predicates:
+            - Path=/teams/**
+        - id: investment-service
+          uri: lb://INVESTMENT-SERVICE
+          predicates:
+            - Path=/investments/**
+        - id: startup-service
+          uri: lb://STARTUP-SERVICE
+          predicates:
+            - Path=/startups/**
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/users/**
+        - id: auth-service
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/auth/**
+        - id: auth-service-docs
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/auth-docs/**
+          filters:
+            - RewritePath=/auth-docs/(?<segment>.*), /${segment}
+        - id: user-service-docs
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-docs/**
+          filters:
+            - RewritePath=/user-docs/(?<segment>.*), /${segment}
+        - id: startup-service-docs
+          uri: lb://STARTUP-SERVICE
+          predicates:
+            - Path=/startup-docs/**
+          filters:
+            - RewritePath=/startup-docs/(?<segment>.*), /${segment}
+        - id: investment-service-docs
+          uri: lb://INVESTMENT-SERVICE
+          predicates:
+            - Path=/investment-docs/**
+          filters:
+            - RewritePath=/investment-docs/(?<segment>.*), /${segment}
+        - id: team-service-docs
+          uri: lb://TEAM-SERVICE
+          predicates:
+            - Path=/team-docs/**
+          filters:
+            - RewritePath=/team-docs/(?<segment>.*), /${segment}
+        - id: notification-service-docs
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/notification-docs/**
+          filters:
+            - RewritePath=/notification-docs/(?<segment>.*), /${segment}
+
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-service:8760/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: Auth Service API
+        url: /auth-docs/v3/api-docs
+      - name: User Service API
+        url: /user-docs/v3/api-docs
+      - name: Startup Service API
+        url: /startup-docs/v3/api-docs
+      - name: Investment Service API
+        url: /investment-docs/v3/api-docs
+      - name: Team Service API
+        url: /team-docs/v3/api-docs
+      - name: Notification Service API
+        url: /notification-docs/v3/api-docs
