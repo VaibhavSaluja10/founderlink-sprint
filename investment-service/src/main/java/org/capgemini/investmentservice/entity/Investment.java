@@ -32,6 +32,7 @@ public class Investment {
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-    
-    private String comments;
+
+    @Column(name = "comment")
+    private String comment;
 }

@@ -6,6 +6,7 @@ import org.capgemini.authservice.dto.LoginRequest;
 import org.capgemini.authservice.dto.MessageResponse;
 import org.capgemini.authservice.dto.RegisterRequest;
 import org.capgemini.authservice.dto.TokenValidationResponse;
+import org.capgemini.authservice.dto.UserDetailsResponse;
 import org.capgemini.authservice.entity.Role;
 import org.capgemini.authservice.entity.RoleName;
 import org.capgemini.authservice.entity.User;
@@ -125,6 +126,23 @@ public class AuthController {
         // Simple token refresh: generate a new one for the currently authenticated admin
         String newJwt = jwtUtils.generateJwtToken(authentication);
         return ResponseEntity.ok(new MessageResponse("New Token: " + newJwt));
+    }
+
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserDetailsResponse>> getAllUsers() {
+        List<UserDetailsResponse> users = userRepository.findAll().stream()
+                .map(user -> new UserDetailsResponse(
+                        user.getId(),
+                        user.getName(),
+                        user.getEmail(),
+                        user.getRoles().stream()
+                                .map(role -> role.getName().name())
+                                .collect(Collectors.toList()),
+                        user.getCreatedAt()))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(users);
     }
 
     @GetMapping("/validate")

@@ -9,6 +9,11 @@ services:
       MYSQL_ROOT_PASSWORD: root
     ports:
       - "3388:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
@@ -31,12 +36,48 @@ services:
     networks:
       - founderlink-network
 
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    networks:
+      - founderlink-network
+    environment:
+      - SONAR_WEB_JAVAOPTS=-Xms512m -Xmx512m
+      - SONAR_CE_JAVAOPTS=-Xms512m -Xmx512m
+      - SONAR_SEARCH_JAVAOPTS=-Xms512m -Xmx512m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc:
+        soft: 4096
+        hard: 4096
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/api/system/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+
   # --- CORE SERVICES ---
   eureka-service:
     build: ./eureka-service
     container_name: eureka-service
     ports:
       - "8760:8760"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8760/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     networks:
       - founderlink-network
 
@@ -46,11 +87,19 @@ services:
     ports:
       - "8887:8887"
     depends_on:
-      - eureka-service
-    environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
+      eureka-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8887/config-server/default || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     volumes:
-      - ./config-repo:/app/config-repo
+      - ./config-repo-git:/config
+    environment:
+      - SPRING_PROFILES_ACTIVE=native
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
     networks:
       - founderlink-network
 
@@ -60,8 +109,10 @@ services:
     ports:
       - "8060:8060"
     depends_on:
-      - eureka-service
-      - config-server
+      eureka-service:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
@@ -70,28 +121,16 @@ services:
       - founderlink-network
 
   # --- BUSINESS SERVICES ---
-  #  auth-service:
-  #    build: ./auth-service
-  #    container_name: auth-service
-  #    depends_on:
-  #      - mysql-db
-  #      - eureka-service
-  #    environment:
-  #      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/founderlink_auth_sprint?createDatabaseIfNotExist=true
-  #      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
-  #      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
-  #      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
-  #    networks:
-  #      - founderlink-network
-
   auth-service:
     build: ./auth-service
     container_name: auth-service
     ports:
       - "8061:8061"
     depends_on:
-      - mysql-db
-      - eureka-service
+      mysql-db:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/founderlink_auth_sprint?createDatabaseIfNotExist=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
@@ -104,8 +143,10 @@ services:
     build: ./user-service
     container_name: user-service
     depends_on:
-      - mysql-db
-      - eureka-service
+      mysql-db:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/founderlink_user_sprint?createDatabaseIfNotExist=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
@@ -118,15 +159,22 @@ services:
     build: ./startup-service
     container_name: startup-service
     depends_on:
-      - mysql-db
-      - rabbitmq
-      - eureka-service
+      mysql-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      eureka-service:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/founderlink_startup_sprint?createDatabaseIfNotExist=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
+      - INVESTOR_ALERT_EMAILS=${INVESTOR_ALERT_EMAILS}
     networks:
       - founderlink-network
 
@@ -134,8 +182,10 @@ services:
     build: ./investment-service
     container_name: investment-service
     depends_on:
-      - mysql-db
-      - eureka-service
+      mysql-db:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/founderlink_investment_sprint?createDatabaseIfNotExist=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
@@ -148,9 +198,12 @@ services:
     build: ./team-service
     container_name: team-service
     depends_on:
-      - mysql-db
-      - eureka-service
-      - rabbitmq
+      mysql-db:
+        condition: service_healthy
+      eureka-service:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/founderlink_team_sprint?createDatabaseIfNotExist=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
@@ -164,31 +217,25 @@ services:
     build: ./notification-service
     container_name: notification-service
     depends_on:
-      - mysql-db
-      - rabbitmq
-      - eureka-service
+      mysql-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      eureka-service:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/founderlink_notification_sprint?createDatabaseIfNotExist=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
+      - INVESTOR_ALERT_EMAILS=${INVESTOR_ALERT_EMAILS}
     networks:
       - founderlink-network
 
-  messaging-service:
-    build: ./messaging-service
-    container_name: messaging-service
-    depends_on:
-      - mysql-db
-      - eureka-service
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/founderlink_messaging_sprint?createDatabaseIfNotExist=true
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8760/eureka/
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8887
-      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
-    networks:
-      - founderlink-network
 
 networks:
   founderlink-network:
@@ -196,4 +243,10 @@ networks:
 
 volumes:
   mysql-data:
+    driver: local
+  sonarqube-data:
+    driver: local
+  sonarqube-extensions:
+    driver: local
+  sonarqube-logs:
     driver: local

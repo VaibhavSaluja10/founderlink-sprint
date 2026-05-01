@@ -1,6 +1,7 @@
 package org.capgemini.teamservice.controller;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.capgemini.teamservice.client.StartupServiceClient;
 import org.capgemini.teamservice.config.RabbitConfig;
 import org.capgemini.teamservice.dto.InviteDto;
 import org.capgemini.teamservice.dto.JoinDto;
@@ -12,9 +13,7 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.List;
@@ -27,32 +26,20 @@ public class TeamController {
     private TeamMemberRepository repository;
 
     @Autowired
-    private RestTemplate restTemplate;
+    private StartupServiceClient startupServiceClient;
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
     @PostMapping("/invite")
     @PreAuthorize("hasRole('FOUNDER') or hasRole('ADMIN')")
-    public ResponseEntity<?> inviteUser(@RequestBody InviteDto inviteDto, Authentication authentication, HttpServletRequest request) {
+    public ResponseEntity<?> inviteUser(@RequestBody InviteDto inviteDto, Authentication authentication) {
         System.out.println("Calling /invite with User: " + authentication.getName() + " and Roles: " + authentication.getAuthorities());
         boolean isAdmin = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         
         if (!isAdmin) {
             try {
-                HttpHeaders headers = new HttpHeaders();
-                headers.set("Authorization", request.getHeader("Authorization"));
-                HttpEntity<String> entity = new HttpEntity<>(headers);
-                
-                ResponseEntity<Map> response = restTemplate.exchange(
-                        "http://STARTUP-SERVICE/startups/" + inviteDto.getStartupId(),
-                        HttpMethod.GET,
-                        entity,
-                        Map.class
-                );
-
-                @SuppressWarnings("unchecked")
-                Map<String, Object> startup = (Map<String, Object>) response.getBody();
+                Map<String, Object> startup = startupServiceClient.getStartupById(inviteDto.getStartupId());
                 if (startup != null && !authentication.getName().equals(startup.get("founderEmail"))) {
                     return ResponseEntity.status(403).body("Error: Only the Lead Founder owner can invite to this team.");
                 }
@@ -99,27 +86,30 @@ public class TeamController {
         }).orElse(ResponseEntity.status(404).body("Error: Invitation not found or the email does not match your current token."));
     }
 
+    @GetMapping("/my-invitations")
+    @PreAuthorize("hasRole('COFOUNDER')")
+    public ResponseEntity<?> getMyInvitations(Authentication authentication) {
+        return ResponseEntity.ok(repository.findByInvitedUserEmail(authentication.getName()));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAllTeamMembers() {
+        return ResponseEntity.ok(repository.findAll());
+    }
+
     @GetMapping("/startup/{startupId}")
     @PreAuthorize("hasRole('FOUNDER') or hasRole('COFOUNDER') or hasRole('ADMIN')")
-    public ResponseEntity<?> getTeamForStartup(@PathVariable Long startupId, Authentication authentication, HttpServletRequest request) {
+    public ResponseEntity<?> getTeamForStartup(@PathVariable Long startupId, Authentication authentication) {
         boolean isAdmin = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         if (isAdmin) {
             return ResponseEntity.ok(repository.findByStartupId(startupId));
         }
 
-        // Check if user is the Founder of this startup
+        // Check if user is the Founder of this startup using Feign Client
         boolean isOwner = false;
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", request.getHeader("Authorization"));
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    "http://STARTUP-SERVICE/startups/" + startupId,
-                    HttpMethod.GET,
-                    entity,
-                    Map.class
-            );
-            Map<String, Object> startup = response.getBody();
+            Map<String, Object> startup = startupServiceClient.getStartupById(startupId);
             if (startup != null && authentication.getName().equals(startup.get("founderEmail"))) {
                 isOwner = true;
             }
@@ -145,22 +135,13 @@ public class TeamController {
 
     @PutMapping("/{memberId}/role")
     @PreAuthorize("hasRole('FOUNDER') or hasRole('ADMIN')")
-    public ResponseEntity<?> updateMemberRole(@PathVariable Long memberId, @RequestBody Map<String, String> body, Authentication authentication, HttpServletRequest request) {
+    public ResponseEntity<?> updateMemberRole(@PathVariable Long memberId, @RequestBody Map<String, String> body, Authentication authentication) {
         return repository.findById(memberId).map(member -> {
             boolean isAdmin = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
             if (!isAdmin) {
                 try {
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.set("Authorization", request.getHeader("Authorization"));
-                    HttpEntity<String> entity = new HttpEntity<>(headers);
-                    ResponseEntity<Map> response = restTemplate.exchange(
-                            "http://STARTUP-SERVICE/startups/" + member.getStartupId(),
-                            HttpMethod.GET,
-                            entity,
-                            Map.class
-                    );
-                    Map<String, Object> startup = response.getBody();
+                    Map<String, Object> startup = startupServiceClient.getStartupById(member.getStartupId());
                     if (startup == null || !authentication.getName().equals(startup.get("founderEmail"))) {
                         return ResponseEntity.status(403).body("Error: You are not authorized to manage roles for this team.");
                     }

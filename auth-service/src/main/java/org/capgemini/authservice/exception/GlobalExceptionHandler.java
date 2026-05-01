@@ -21,22 +21,11 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Global Exception Handler for auth-service.
- *
- * Catches exceptions thrown from any controller and returns a clean,
- * structured JSON response instead of a raw Spring error page.
- *
- * @RestControllerAdvice = @ControllerAdvice + @ResponseBody
- * (applies globally to all @RestController classes)
- */
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 1. VALIDATION ERRORS  →  400 Bad Request
-    //    Triggered when @Valid fails on @RequestBody (e.g., @NotBlank, @Email)
-    // ─────────────────────────────────────────────────────────────────────────
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationErrors(
             MethodArgumentNotValidException ex,
@@ -59,10 +48,7 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(400, "Validation Failed", message, request.getRequestURI()));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 2. BAD CREDENTIALS  →  401 Unauthorized
-    //    Thrown by AuthenticationManager when email/password is wrong
-    // ─────────────────────────────────────────────────────────────────────────
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(
             BadCredentialsException ex,
@@ -73,10 +59,7 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(401, "Unauthorized", "Invalid email or password", request.getRequestURI()));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 3. ACCOUNT DISABLED  →  401 Unauthorized
-    //    Thrown when user account is disabled
-    // ─────────────────────────────────────────────────────────────────────────
+
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ErrorResponse> handleDisabledException(
             DisabledException ex,

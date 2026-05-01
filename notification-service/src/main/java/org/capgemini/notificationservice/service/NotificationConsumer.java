@@ -3,8 +3,10 @@ package org.capgemini.notificationservice.service;
 import org.capgemini.notificationservice.config.RabbitConfig;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.Map;
 
 @Service
@@ -12,6 +14,12 @@ public class NotificationConsumer {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private EmailService emailService;
+
+    @Value("${founderlink.notifications.investor-alert-emails:}")
+    private String investorAlertEmails;
 
     @RabbitListener(queues = RabbitConfig.STARTUP_QUEUE)
     public void consumeStartupEvent(Map<String, Object> event) {
@@ -23,10 +31,11 @@ public class NotificationConsumer {
             String message = "Your startup '" + startupName + "' has been " + status + "!";
             
             notificationService.createNotification(founderEmail, message, "STARTUP_STATUS_UPDATED");
-            System.out.println("MOCK EMAIL SENT to " + founderEmail + ": " + message);
+            emailService.sendEmail(founderEmail, "FounderLink startup status update", message);
         } else {
             // It's a NEW STARTUP CREATED
             String industry = (String) event.get("industry");
+            Object fundingGoal = event.get("fundingGoal");
             String message = "New startup created in " + industry + " industry. Check it out!";
             String founderEmail = (String) event.get("founderId"); 
             
@@ -37,9 +46,17 @@ public class NotificationConsumer {
             // Notify Founder too (User satisfaction)
             notificationService.createNotification(founderEmail, "Your startup has been created successfully and is pending approval!", "STARTUP_CREATED");
             
-            // Mock Emails
-            System.out.println("MOCK EMAIL SENT to " + adminEmail + ": " + message);
-            System.out.println("MOCK EMAIL SENT to " + founderEmail + ": Your startup has been created successfully!");
+            emailService.sendEmail(adminEmail, "FounderLink new startup created", message);
+            emailService.sendEmail(founderEmail, "FounderLink startup submitted", "Your startup has been created successfully and is pending approval!");
+
+            Arrays.stream(investorAlertEmails.split(","))
+                    .map(String::trim)
+                    .filter(email -> !email.isBlank())
+                    .forEach(email -> {
+                        String investorMessage = "New startup opportunity in " + industry + " with funding goal " + fundingGoal + ". Login to FounderLink to review it.";
+                        notificationService.createNotification(email, investorMessage, "STARTUP_CREATED");
+                        emailService.sendEmail(email, "FounderLink new startup opportunity", investorMessage);
+                    });
         }
     }
 
@@ -50,16 +67,16 @@ public class NotificationConsumer {
             String investorEmail = (String) event.get("investorEmail");
             String status = (String) event.get("status");
             Object amount = event.get("amount");
-            String message = "Your investment of $" + amount + " has been " + status + "!";
+            String message = "Your investment of Rs " + amount + " has been " + status + "!";
             notificationService.createNotification(investorEmail, message, "INVESTMENT_STATUS_UPDATED");
-            System.out.println("MOCK EMAIL SENT to " + investorEmail + ": " + message);
+            emailService.sendEmail(investorEmail, "FounderLink investment status update", message);
         } else {
             // It's a new investment - Notify Founder
             String founderEmail = (String) event.get("founderEmail");
             Object amount = event.get("amount");
-            String message = "Congratulations! You received a new investment of $" + amount + "!";
+            String message = "Congratulations! You received a new investment of Rs " + amount + "!";
             notificationService.createNotification(founderEmail, message, "INVESTMENT_CREATED");
-            System.out.println("MOCK EMAIL SENT to " + founderEmail + ": " + message);
+            emailService.sendEmail(founderEmail, "FounderLink new investment request", message);
         }
     }
 
@@ -70,8 +87,6 @@ public class NotificationConsumer {
         String message = "You have been invited to join a startup team as " + role + ". Please Accept/Reject.";
         
         notificationService.createNotification(invitedEmail, message, "TEAM_INVITE_SENT");
-        
-        // Mock Email
-        System.out.println("MOCK EMAIL SENT to " + invitedEmail + ": " + message);
+        emailService.sendEmail(invitedEmail, "FounderLink team invitation", message);
     }
 }

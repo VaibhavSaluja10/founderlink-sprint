@@ -1,17 +1,19 @@
 spring:
   application:
     name: team-service
+  profiles:
+    active: dev
   datasource:
-    url: jdbc:mysql://localhost:3306/founderlink_team_sprint?createDatabaseIfNotExist=true
+    url: jdbc:mysql://mysql-db:3306/founderlink_team_sprint?createDatabaseIfNotExist=true
     username: root
     password: root
   jpa:
     hibernate:
       ddl-auto: update
   config:
-    import: optional:configserver:http://localhost:8887
+    import: optional:configserver:http://config-server:8887
   rabbitmq:
-    host: localhost
+    host: rabbitmq
     port: 5672
 
 server:
@@ -20,7 +22,7 @@ server:
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://localhost:8760/eureka/
+      defaultZone: http://eureka-service:8760/eureka/
 
 management:
   tracing:
@@ -28,7 +30,7 @@ management:
       probability: 1.0
   zipkin:
     tracing:
-      endpoint: http://localhost:9411/api/v2/spans
+      endpoint: http://zipkin:9411/api/v2/spans
 
 jwt:
   secret: 9a4f2c8d3b7a1e6f45c8a0b3f267d8b1d4e6f3c8a9d2b5f8e3a9c8b5f6v8a3d9

@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 @Setter
 public class StartupPublicDto {
     private Long id;
+    private String founderEmail;
     private String startupName;
     private String industry;
     private StartupStage stage;
@@ -18,6 +19,7 @@ public class StartupPublicDto {
 
     public StartupPublicDto(Startup startup) {
         this.id = startup.getId();
+        this.founderEmail = startup.getFounderEmail();
         this.startupName = startup.getStartupName();
         this.industry = startup.getIndustry();
         this.stage = startup.getStage();

@@ -23,8 +23,17 @@ public class NotificationController {
     }
 
     @PutMapping("/{id}/read")
-    public ResponseEntity<?> markAsRead(@PathVariable Long id) {
-        service.markAsRead(id);
+    public ResponseEntity<?> markAsRead(@PathVariable Long id, Authentication authentication) {
+        boolean updated = service.markAsRead(id, authentication.getName());
+        if (!updated) {
+            return ResponseEntity.status(404).body("Notification not found for this user.");
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/my/read")
+    public ResponseEntity<?> markMyNotificationsAsRead(Authentication authentication) {
+        service.markAllAsRead(authentication.getName());
         return ResponseEntity.ok().build();
     }
 }

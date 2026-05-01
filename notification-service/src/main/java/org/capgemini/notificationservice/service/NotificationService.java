@@ -29,10 +29,17 @@ public class NotificationService {
         return repository.findByUserId(userId);
     }
 
-    public void markAsRead(Long notificationId) {
-        repository.findById(notificationId).ifPresent(notification -> {
+    public boolean markAsRead(Long notificationId, String userId) {
+        return repository.findByIdAndUserId(notificationId, userId).map(notification -> {
             notification.setStatus("READ");
             repository.save(notification);
-        });
+            return true;
+        }).orElse(false);
+    }
+
+    public void markAllAsRead(String userId) {
+        List<Notification> unreadNotifications = repository.findByUserIdAndStatus(userId, "UNREAD");
+        unreadNotifications.forEach(notification -> notification.setStatus("READ"));
+        repository.saveAll(unreadNotifications);
     }
 }

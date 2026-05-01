@@ -1,5 +1,6 @@
 package org.capgemini.startupservice.controller;
 
+import org.capgemini.startupservice.dto.StartupAdminDto;
 import org.capgemini.startupservice.dto.StartupPublicDto;
 import org.capgemini.startupservice.entity.Startup;
 import org.capgemini.startupservice.entity.StartupStatus;
@@ -43,12 +44,13 @@ public class StartupController {
             );
             rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY_STATUS, event);
             
-            return ResponseEntity.ok(saved);
+            // Return admin DTO (no members list for admin)
+            return ResponseEntity.ok(new StartupAdminDto(saved));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('FOUNDER') or hasRole('COFOUNDER')")
+    @PreAuthorize("hasRole('FOUNDER')")
     public ResponseEntity<?> createStartup(@RequestBody Startup startup, Authentication authentication) {
         startup.setFounderEmail(authentication.getName());
         Startup saved = repository.save(startup);
@@ -67,19 +69,29 @@ public class StartupController {
 
     @GetMapping
     public ResponseEntity<?> getAllStartups(Authentication authentication) {
+        // Admin: All startups with admin DTO (no members list shown)
         boolean isAdmin = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         if (isAdmin) {
-            return ResponseEntity.ok(repository.findAll());
+            return ResponseEntity.ok(repository.findAll().stream()
+                    .map(StartupAdminDto::new)
+                    .toList());
         }
+
+        // Founder: Only own startups with full details
         boolean isFounder = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_FOUNDER"));
+        if (isFounder) {
+            return ResponseEntity.ok(repository.findByFounderEmail(authentication.getName()));
+        }
+
+        // CoFounder: Only own startups with full details
         boolean isCoFounder = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_COFOUNDER"));
-        
-        if (isFounder || isCoFounder) {
+        if (isCoFounder) {
             return ResponseEntity.ok(repository.findByFounderEmail(authentication.getName()));
         }
         
-        // Investor: See all startups (DTO view)
+        // Investor: Only APPROVED startups with limited public DTO
         return ResponseEntity.ok(repository.findAll().stream()
+                .filter(s -> s.getStatus() == StartupStatus.APPROVED)
                 .map(StartupPublicDto::new)
                 .toList());
     }
@@ -87,19 +99,24 @@ public class StartupController {
     @PostMapping("/{id}/follow")
     @PreAuthorize("hasRole('INVESTOR')")
     public ResponseEntity<?> followStartup(@PathVariable Long id, Authentication authentication) {
-        if (!repository.existsById(id)) return ResponseEntity.notFound().build();
-        
-        String email = authentication.getName();
-        if (followRepository.existsByInvestorEmailAndStartupId(email, id)) {
-            return ResponseEntity.badRequest().body("Already following this startup.");
-        }
-        
-        org.capgemini.startupservice.entity.Follow follow = org.capgemini.startupservice.entity.Follow.builder()
-                .investorEmail(email)
-                .startupId(id)
-                .build();
-        
-        return ResponseEntity.ok(followRepository.save(follow));
+        return repository.findById(id).map(startup -> {
+            // Investor can only follow APPROVED startups
+            if (startup.getStatus() != StartupStatus.APPROVED) {
+                return ResponseEntity.badRequest().body("Can only follow APPROVED startups.");
+            }
+
+            String email = authentication.getName();
+            if (followRepository.existsByInvestorEmailAndStartupId(email, id)) {
+                return ResponseEntity.badRequest().body("Already following this startup.");
+            }
+
+            org.capgemini.startupservice.entity.Follow follow = org.capgemini.startupservice.entity.Follow.builder()
+                    .investorEmail(email)
+                    .startupId(id)
+                    .build();
+
+            return ResponseEntity.ok(followRepository.save(follow));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}/unfollow")
@@ -123,6 +140,15 @@ public class StartupController {
                 .toList());
     }
 
+    @GetMapping("/opportunities")
+    @PreAuthorize("hasRole('INVESTOR') or hasRole('COFOUNDER')")
+    public ResponseEntity<?> getApprovedStartupOpportunities() {
+        return ResponseEntity.ok(repository.findAll().stream()
+                .filter(s -> s.getStatus() == StartupStatus.APPROVED)
+                .map(StartupPublicDto::new)
+                .toList());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> getStartupById(@PathVariable Long id, Authentication authentication) {
         return repository.findById(id).map(startup -> {
@@ -130,18 +156,23 @@ public class StartupController {
             boolean isFounder = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_FOUNDER"));
             boolean isCoFounder = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_COFOUNDER"));
 
-            // Requirement: All details - For Admin, Founder, CoFounder
-            if (isAdmin || isFounder || isCoFounder) {
+            // Admin: admin DTO (no members list)
+            if (isAdmin) {
+                return ResponseEntity.ok(new StartupAdminDto(startup));
+            }
+            
+            // Founder/CoFounder: full details of own startups
+            if (isFounder || isCoFounder) {
                 return ResponseEntity.ok(startup);
             }
             
-            // Requirement: Necessary details only - For Investor
+            // Investor: public DTO only
             return ResponseEntity.ok(new StartupPublicDto(startup));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('FOUNDER') or hasRole('COFOUNDER')")
+    @PreAuthorize("hasRole('FOUNDER')")
     public ResponseEntity<?> updateStartup(@PathVariable Long id, @RequestBody Startup updatedStartup, Authentication authentication) {
         return repository.findById(id).map(startup -> {
             boolean isOwner = startup.getFounderEmail().equals(authentication.getName());
@@ -162,7 +193,7 @@ public class StartupController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('FOUNDER') or hasRole('COFOUNDER')")
+    @PreAuthorize("hasRole('FOUNDER')")
     public ResponseEntity<?> deleteStartup(@PathVariable Long id, Authentication authentication) {
         return repository.findById(id).map(startup -> {
             boolean isOwner = startup.getFounderEmail().equals(authentication.getName());
